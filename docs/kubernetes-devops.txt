@@ -1,0 +1,76 @@
+IT SUPPORT KNOWLEDGE BASE — KUBERNETES & DEVOPS TOOLS
+======================================================
+
+ISSUE: Pod stuck in CrashLoopBackOff
+SOLUTION:
+1. Check pod logs: kubectl logs <pod-name> --previous
+2. Check pod events: kubectl describe pod <pod-name>
+3. Common causes:
+   - Missing environment variables or secrets
+   - Application error on startup
+   - Insufficient memory (OOMKilled) — increase memory limit
+   - Liveness probe failing too early — increase initialDelaySeconds
+4. Check resource usage: kubectl top pod <pod-name>
+5. Verify secrets exist: kubectl get secret <secret-name>
+
+ISSUE: Pod stuck in Pending state
+SOLUTION:
+1. Check events: kubectl describe pod <pod-name>
+2. Common causes:
+   - Insufficient cluster resources — check node capacity
+   - Node selector not matching any node
+   - PersistentVolumeClaim not bound
+3. Check node resources: kubectl describe nodes
+4. Check if namespace has resource quotas: kubectl describe quota -n <namespace>
+
+ISSUE: ImagePullBackOff error
+SOLUTION:
+1. Verify image name and tag are correct
+2. Check if image exists in registry: docker pull <image>
+3. Verify imagePullSecret is configured in deployment
+4. Check registry credentials: kubectl get secret registry-credentials
+5. Ensure node has network access to image registry
+6. Check for typos in image name
+
+ISSUE: GitLab CI pipeline failing
+SOLUTION:
+1. Check pipeline logs in GitLab UI — click failing job for details
+2. Common causes:
+   - Test failures — check test output in logs
+   - Docker build failure — check Dockerfile syntax
+   - Missing environment variables — check CI/CD settings in GitLab
+   - Registry push failure — verify registry credentials in GitLab variables
+3. Run pipeline with debug: add CI_DEBUG_TRACE: "true" to variables
+4. Check runner availability: GitLab > Settings > CI/CD > Runners
+
+ISSUE: Terraform apply failing
+SOLUTION:
+1. Run terraform plan first to see what changes will be made
+2. Check error message carefully — usually points to specific resource
+3. Common causes:
+   - AWS/Azure credentials expired — refresh credentials
+   - Resource already exists — use terraform import
+   - State file locked — check for stuck operations
+4. Check state file: terraform show
+5. For lock issues: terraform force-unlock <lock-id>
+6. Validate syntax: terraform validate
+
+ISSUE: Docker container exits immediately
+SOLUTION:
+1. Run interactively to debug: docker run -it <image> /bin/bash
+2. Check logs: docker logs <container-id>
+3. Common causes:
+   - CMD or ENTRYPOINT command not found
+   - Application crashes on startup
+   - Missing required environment variables
+4. Check Dockerfile ENTRYPOINT and CMD instructions
+5. Verify all required env vars are passed with -e flag
+
+ISSUE: Helm deployment failing
+SOLUTION:
+1. Dry run first: helm install --dry-run --debug <name> <chart>
+2. Check helm lint: helm lint <chart-directory>
+3. Check existing releases: helm list -n <namespace>
+4. View rendered templates: helm template <name> <chart>
+5. Check for conflicting resources: kubectl get all -n <namespace>
+6. Review values file for incorrect configurations

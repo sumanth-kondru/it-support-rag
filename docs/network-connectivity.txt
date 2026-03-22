@@ -1,0 +1,58 @@
+IT SUPPORT KNOWLEDGE BASE — NETWORK & CONNECTIVITY
+===================================================
+
+ISSUE: No internet connection
+SOLUTION:
+1. Check if Wi-Fi is enabled on your device
+2. Disconnect from Wi-Fi and reconnect
+3. Restart your router (unplug, wait 30 seconds, plug back in)
+4. Try connecting to a different network to isolate the issue
+5. Run: ipconfig /all (Windows) or ifconfig (Mac/Linux) to check IP assignment
+6. Check if IP starts with 169.x.x.x — this means DHCP failure, restart network adapter
+7. Escalate to network team if issue affects multiple users
+
+ISSUE: Slow network / high latency
+SOLUTION:
+1. Run speed test at speedtest.net to baseline the problem
+2. Check if VPN is adding latency — disconnect VPN and test again
+3. Close bandwidth-heavy applications (video streaming, large downloads)
+4. Check for network-heavy Windows updates running in background
+5. Connect via ethernet cable instead of WiFi for better performance
+6. Run: ping 8.8.8.8 to check latency to internet
+7. If latency > 100ms consistently, escalate to network team with ping results
+
+ISSUE: Cannot access internal applications / intranet
+SOLUTION:
+1. Verify VPN is connected (required for internal access from outside office)
+2. Check DNS settings — should be 10.0.0.1 (internal DNS)
+3. Try accessing by IP address instead of hostname to isolate DNS issue
+4. Run: nslookup appname.company.internal to verify DNS resolution
+5. Clear DNS cache: ipconfig /flushdns (Windows) or sudo dscacheutil -flushcache (Mac)
+6. Check if the application is on the IT status page for known outages
+
+ISSUE: Wi-Fi keeps disconnecting
+SOLUTION:
+1. Forget the network and reconnect with fresh credentials
+2. Check if device is too far from access point — move closer
+3. Update Wi-Fi adapter drivers
+4. Change Wi-Fi band from 2.4GHz to 5GHz for better stability
+5. Check for interference from other devices (microwaves, Bluetooth)
+6. If in office, report to facilities team — may need access point check
+
+ISSUE: Kubernetes/DevOps tools cannot connect to internal registry
+SOLUTION:
+1. Verify VPN connection is active
+2. Check DNS resolution: nslookup registry.company.internal
+3. Verify SSL certificates are not expired: openssl s_client -connect registry:443
+4. Check if firewall rules block port 443 to registry
+5. Verify credentials: docker login registry.company.internal
+6. Check proxy settings if behind corporate proxy
+
+ISSUE: SSH connection refused / timeout
+SOLUTION:
+1. Verify VPN is connected
+2. Check SSH key permissions: chmod 600 ~/.ssh/id_rsa
+3. Test with verbose mode: ssh -vvv user@host to diagnose
+4. Check if SSH service is running on target: telnet host 22
+5. Verify firewall allows port 22 from your IP
+6. Check known_hosts for stale entries: ssh-keygen -R hostname

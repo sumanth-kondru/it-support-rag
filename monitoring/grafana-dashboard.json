@@ -1,0 +1,41 @@
+{
+  "dashboard": {
+    "title": "IT Support RAG Chatbot — AI Observability Dashboard",
+    "description": "Monitor GenAI application performance — same Prometheus/Grafana stack used in production DevOps",
+    "panels": [
+      {
+        "title": "Total Questions Asked",
+        "type": "stat",
+        "targets": [{ "expr": "itsupport_questions_total" }]
+      },
+      {
+        "title": "Success Rate",
+        "type": "gauge",
+        "targets": [{
+          "expr": "rate(itsupport_questions_success[5m]) / rate(itsupport_questions_total[5m]) * 100"
+        }]
+      },
+      {
+        "title": "Response Time (p95)",
+        "type": "graph",
+        "targets": [{
+          "expr": "histogram_quantile(0.95, rate(itsupport_response_seconds_bucket[5m]))",
+          "legendFormat": "p95 response time"
+        }]
+      },
+      {
+        "title": "Questions Per Minute",
+        "type": "graph",
+        "targets": [{
+          "expr": "rate(itsupport_questions_total[1m]) * 60",
+          "legendFormat": "questions/min"
+        }]
+      },
+      {
+        "title": "Failed Questions",
+        "type": "stat",
+        "targets": [{ "expr": "itsupport_questions_failed" }]
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+*.egg-info/
+
+# ChromaDB — vector store data (too large for git)
+chroma_db/
+
+# Ollama models (downloaded locally)
+models/
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets (SOPS encrypted — never commit plain secrets)
+*.key
+secrets.yaml

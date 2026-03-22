@@ -1,0 +1,62 @@
+IT SUPPORT KNOWLEDGE BASE — HARDWARE & LAPTOP ISSUES
+=====================================================
+
+ISSUE: Laptop running slow
+SOLUTION:
+1. Restart the laptop first — fixes 80% of slowness issues
+2. Check CPU and memory usage in Activity Monitor (Mac) or Task Manager (Windows)
+3. Close unnecessary applications and browser tabs
+4. Check disk space — should have at least 15% free: df -h (Mac/Linux)
+5. Run disk cleanup (Windows) or empty trash (Mac)
+6. Check for malware: run company-approved antivirus scan
+7. If laptop is over 4 years old, request hardware upgrade through IT portal
+
+ISSUE: Laptop not charging
+SOLUTION:
+1. Try a different power outlet
+2. Inspect charging cable for damage
+3. Remove and reseat the battery if removable
+4. Reset SMC on Mac: shutdown, hold Shift+Control+Option+Power for 10 seconds
+5. Check charging port for debris — use compressed air to clean
+6. Request replacement charger through IT portal if cable is damaged
+7. Submit hardware repair ticket if issue persists
+
+ISSUE: External monitor not detected
+SOLUTION:
+1. Check all cable connections — unplug and replug firmly
+2. Try a different cable or port
+3. On Windows: right-click desktop > Display Settings > Detect
+4. On Mac: System Preferences > Displays > Option+click Detect Displays
+5. Restart laptop with monitor connected
+6. Update display drivers on Windows
+7. Try connecting monitor to different laptop to isolate whether issue is laptop or monitor
+
+ISSUE: Keyboard keys not working
+SOLUTION:
+1. Restart the laptop
+2. Check if specific keys or all keys are affected
+3. Clean keyboard with compressed air
+4. For Mac: try Apple Diagnostics (hold D on startup)
+5. Connect external USB keyboard to test if hardware issue
+6. For liquid damage: immediately power off, do NOT turn back on, contact IT immediately
+7. Submit hardware repair ticket for physical damage
+
+ISSUE: Webcam not working in video calls
+SOLUTION:
+1. Check if another application is using the webcam (only one app at a time)
+2. Check browser permissions — click lock icon in address bar > Camera > Allow
+3. Restart the video call application
+4. On Mac: check System Preferences > Security > Camera permissions
+5. On Windows: Settings > Privacy > Camera > Allow apps access
+6. Try different browser or application
+7. Test with Photo Booth (Mac) or Camera app (Windows) to verify hardware works
+
+ISSUE: Audio not working / no sound
+SOLUTION:
+1. Check volume is not muted — look for mute icon in taskbar
+2. Check correct audio output device is selected
+3. Unplug and replug headphones if using external audio
+4. On Mac: System Preferences > Sound > Output
+5. On Windows: right-click speaker icon > Open Sound Settings
+6. Restart audio service on Windows: services.msc > Windows Audio > Restart
+7. Update audio drivers if issue persists

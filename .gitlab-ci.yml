@@ -1,0 +1,104 @@
+# GitLab CI Pipeline for IT Support RAG Chatbot
+# Same structure as your existing GitLab pipelines at T-Mobile
+# Just adds AI-specific steps
+
+stages:
+  - test
+  - security-scan    # AI-specific: scan for vulnerabilities
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_NAME: it-support-rag
+  ECR_URL: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+  IMAGE_TAG: ${CI_COMMIT_SHA}
+
+# ── Test Stage ────────────────────────────────────────────────────────────────
+test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt
+    - pip install pytest
+    - pytest tests/ -v
+  only:
+    - merge_requests
+    - main
+
+# ── Security Scan (Trivy — same as your DevSecOps pipeline) ──────────────────
+trivy-scan:
+  stage: security-scan
+  image: aquasec/trivy:latest
+  script:
+    # Scan Python dependencies for vulnerabilities
+    - trivy fs --exit-code 0 --severity HIGH,CRITICAL .
+    - echo "Security scan complete"
+  allow_failure: false
+  only:
+    - main
+
+# ── Build Docker Image ────────────────────────────────────────────────────────
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:dind
+  script:
+    - docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+    - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_URL}/${IMAGE_NAME}:${IMAGE_TAG}
+    - docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_URL}/${IMAGE_NAME}:latest
+    - echo "✅ Docker image built successfully"
+  only:
+    - main
+
+# ── Push to ECR (your existing AWS ECR — same as always) ─────────────────────
+push-to-ecr:
+  stage: push
+  image: amazon/aws-cli
+  script:
+    # Login to ECR (same command you use at T-Mobile)
+    - aws ecr get-login-password --region ${AWS_REGION} |
+      docker login --username AWS --password-stdin ${ECR_URL}
+    # Scan image BEFORE pushing (AI security best practice)
+    - trivy image --exit-code 1 --severity CRITICAL ${IMAGE_NAME}:${IMAGE_TAG}
+    # Push to ECR
+    - docker push ${ECR_URL}/${IMAGE_NAME}:${IMAGE_TAG}
+    - docker push ${ECR_URL}/${IMAGE_NAME}:latest
+    - echo "✅ Image pushed to ECR"
+  only:
+    - main
+
+# ── Deploy to EKS (your existing EKS cluster) ────────────────────────────────
+deploy-to-eks:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    # Update kubeconfig (same as your T-Mobile deployments)
+    - aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+    # Apply K8s manifests
+    - kubectl apply -f k8s/deployment.yaml
+    # Update image tag
+    - kubectl set image deployment/it-support-rag
+      it-support-rag=${ECR_URL}/${IMAGE_NAME}:${IMAGE_TAG}
+      -n ai-apps
+    # Wait for rollout (same as your current deployments)
+    - kubectl rollout status deployment/it-support-rag -n ai-apps --timeout=300s
+    - echo "✅ Deployed to EKS successfully"
+  environment:
+    name: production
+    url: https://itsupport-ai.company.com
+  only:
+    - main
+
+# ── Rollback job (triggered manually if something goes wrong) ─────────────────
+rollback:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+    - kubectl rollout undo deployment/it-support-rag -n ai-apps
+    - echo "⚠️ Rolled back to previous version"
+  when: manual
+  only:
+    - main

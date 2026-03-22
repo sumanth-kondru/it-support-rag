@@ -1,0 +1,202 @@
+# ── Namespace ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-apps
+  labels:
+    app: it-support-rag
+
+---
+# ── Secret for any future API keys (SOPS managed — your existing skill) ──────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-secrets
+  namespace: ai-apps
+type: Opaque
+stringData:
+  ollama-url: "http://ollama-service:11434"  # internal K8s service URL
+
+---
+# ── ConfigMap for non-sensitive config ───────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: ai-apps
+data:
+  LOG_LEVEL: "INFO"
+  CHUNK_SIZE: "500"
+  CHUNK_OVERLAP: "50"
+  TOP_K_RESULTS: "3"
+
+---
+# ── PersistentVolumeClaim for ChromaDB storage ───────────────────────────────
+# AI needs persistent storage for vector database — same K8s concept you know
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chroma-db-pvc
+  namespace: ai-apps
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi    # vector database storage
+
+---
+# ── Deployment (same YAML structure as your Spring Boot deployments) ──────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: it-support-rag
+  namespace: ai-apps
+  labels:
+    app: it-support-rag
+    version: "1.0.0"
+    type: genai-application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: it-support-rag
+  template:
+    metadata:
+      labels:
+        app: it-support-rag
+      annotations:
+        # Prometheus auto-discovery (you already configure this!)
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+      - name: it-support-rag
+        image: your-ecr-url/it-support-rag:latest  # update with your ECR URL
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+
+        # Environment variables from ConfigMap and Secret
+        # Same pattern as your Spring Boot K8s deployments
+        envFrom:
+        - configMapRef:
+            name: rag-config
+        env:
+        - name: OLLAMA_URL
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: ollama-url
+
+        # Resource limits — AI needs more memory than Spring Boot
+        resources:
+          requests:
+            memory: "1Gi"    # Spring Boot: 256Mi | AI: 1Gi+
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+        # Volume mount for ChromaDB persistence
+        volumeMounts:
+        - name: chroma-storage
+          mountPath: /app/chroma_db
+        - name: docs-storage
+          mountPath: /app/docs
+
+        # Liveness probe (like Spring Actuator /health — you configure these daily)
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 90   # AI needs longer startup than Spring Boot
+          periodSeconds: 30
+          failureThreshold: 3
+
+        # Readiness probe — don't send traffic until RAG pipeline is ready
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 120  # wait for model + vector store to load
+          periodSeconds: 10
+          failureThreshold: 5
+
+      volumes:
+      - name: chroma-storage
+        persistentVolumeClaim:
+          claimName: chroma-db-pvc
+      - name: docs-storage
+        emptyDir: {}    # docs loaded at startup from ConfigMap or S3
+
+---
+# ── Service (same as your Spring Boot K8s services) ──────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: it-support-rag-service
+  namespace: ai-apps
+  labels:
+    app: it-support-rag
+spec:
+  selector:
+    app: it-support-rag
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
+
+---
+# ── HPA Auto-scaling (you already set this up at T-Mobile!) ──────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: it-support-rag-hpa
+  namespace: ai-apps
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: it-support-rag
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70    # scale up when CPU > 70%
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80   # scale up when memory > 80%
+
+---
+# ── Ingress (expose externally — same as your K8s ingress configs) ────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: it-support-rag-ingress
+  namespace: ai-apps
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"  # AI responses take longer
+spec:
+  rules:
+  - host: itsupport-ai.company.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: it-support-rag-service
+            port:
+              number: 80

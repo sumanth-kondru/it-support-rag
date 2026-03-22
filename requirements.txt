@@ -1,0 +1,8 @@
+fastapi==0.110.0
+uvicorn==0.27.0
+langchain==0.1.12
+langchain-community==0.0.28
+chromadb==0.4.24
+prometheus-client==0.20.0
+pydantic==2.6.3
+python-multipart==0.0.9

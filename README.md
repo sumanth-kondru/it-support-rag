@@ -211,7 +211,7 @@ it-support-rag/
 - Building GenAI applications combining LLM deployment with production-grade DevOps
 
 📧 kondru.sumanth@gmail.com
-🔗 linkedin.com/in/sumanth-kondru
+🔗 linkedin.com/in/sumanthkondru
 
 ---
 

@@ -1,225 +1,174 @@
-# 🤖 IT Support RAG Chatbot
+# IT Support RAG Chatbot
 
-> **GenAI-powered IT helpdesk using local LLM — no data leaves your network**
-
-Built by **Sumanth Kondru** | Senior DevOps → GenAI/MLOps Engineer
+GenAI-powered IT helpdesk using a **local** LLM (Ollama) and ChromaDB — documents stay on your machine unless you configure otherwise.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-User Question (HTTP POST)
-        ↓
-FastAPI REST API (port 8000)
-        ↓
-LangChain RAG Pipeline
-        ↓
-ChromaDB Vector Store ──── Search top 3 relevant IT docs
-        ↓
-Ollama LLM (local, free, private)
-        ↓
-IT Support Answer (JSON response)
-        ↓
-Prometheus /metrics ──── Grafana Dashboard
+POST /ask (JSON)
+    → FastAPI (port 8000)
+    → LangChain retrieval QA
+    → ChromaDB (top-k chunks)
+    → Ollama (LLM + embeddings)
+    → JSON answer + source filenames
+    → GET /metrics (Prometheus)
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Tech stack
 
-| Layer | Technology | Why |
-|---|---|---|
-| **LLM** | Ollama + Llama 3.2 (local) | Free, private, no API key, runs on-prem |
-| **RAG Framework** | LangChain | Industry standard for RAG pipelines |
-| **Vector Database** | ChromaDB | Lightweight, no external service needed |
-| **API Framework** | FastAPI | High-performance Python REST API |
-| **Containerization** | Docker | Same as production Spring Boot deployments |
-| **Orchestration** | Kubernetes (EKS) | Production-grade scaling |
-| **CI/CD** | GitLab CI | Automated build → scan → push → deploy |
-| **Monitoring** | Prometheus + Grafana | Full AI observability stack |
-| **Security** | Trivy + SOPS | Container scanning + secrets encryption |
+| Layer | Technology |
+|--------|------------|
+| LLM & embeddings | Ollama (e.g. `llama3.2`, `nomic-embed-text`) |
+| RAG | LangChain |
+| Vector store | ChromaDB (persisted under `./chroma_db`) |
+| API | FastAPI |
+| Metrics | Prometheus client (`/metrics`) |
+| Container | Docker |
+| Orchestration | Kubernetes manifests under `k8s/` |
+| CI/CD | GitLab CI (`.gitlab-ci.yml`) |
+| Dashboards | Grafana JSON under `monitoring/` |
 
 ---
 
-## 🚀 Quick Start — Run Locally on Mac
+## Prerequisites
 
-### Step 1: Install Ollama (free local LLM)
+- **Python 3.11+**
+- **Ollama** installed and running, with models pulled (see below)
+- **IT support docs** as `.txt` files under `docs/` (sample files included)
+
+---
+
+## Quick start (local)
+
+### 1. Ollama
+
 ```bash
-# Download from ollama.com or use brew
-brew install ollama
-
-# Start Ollama service
-ollama serve
-
-# Pull the LLM model (one time, ~2GB download)
+brew install ollama   # or install from https://ollama.com
+ollama serve            # in a separate terminal, if not already running
 ollama pull llama3.2
-
-# Pull embedding model
 ollama pull nomic-embed-text
 ```
 
-### Step 2: Set up Python environment
+Default in `app.py`: LLM and embeddings use `http://localhost:11434`.
+
+### 2. Python app
+
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/it-support-rag.git
+git clone https://github.com/sumanth-kondru/it-support-rag.git
 cd it-support-rag
-
-# Create virtual environment (like a clean container for Python)
 python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies (like mvn install for Spring Boot)
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### Step 3: Run the application
-```bash
-# Start the FastAPI app
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-
-# You should see:
-# ✅ Loaded 4 documents
-# ✅ Split into X chunks
-# ✅ Vector store created
-# ✅ RAG pipeline ready!
-# ✅ Application ready to serve requests
 ```
 
-### Step 4: Test it!
+On startup the app loads `docs/**/*.txt`, builds embeddings, and persists Chroma data to `./chroma_db`.
+
+### 3. Try the API
+
 ```bash
-# Ask a question
-curl -X POST http://localhost:8000/ask \
+curl -s -X POST http://localhost:8000/ask \
   -H "Content-Type: application/json" \
-  -d '{"text": "My pod is stuck in CrashLoopBackOff, how do I fix it?"}'
+  -d '{"text": "My pod is in CrashLoopBackOff — what should I check?"}'
 
-# Check health (like Spring Actuator)
-curl http://localhost:8000/health
-
-# View Prometheus metrics
-curl http://localhost:8000/metrics
-
-# Open Swagger UI (FastAPI auto-generates this — like Swagger in Spring Boot)
-open http://localhost:8000/docs
+curl -s http://localhost:8000/health
+curl -s http://localhost:8000/metrics | head
 ```
+
+Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
-## 🐳 Docker Deployment
+## Docker
 
 ```bash
-# Build image (same as Spring Boot Docker build)
 docker build -t it-support-rag:latest .
-
-# Run container
-docker run -p 8000:8000 \
-  -v $(pwd)/docs:/app/docs \
-  -v $(pwd)/chroma_db:/app/chroma_db \
+docker run --rm -p 8000:8000 \
+  -v "$(pwd)/docs:/app/docs" \
+  -v "$(pwd)/chroma_db:/app/chroma_db" \
   it-support-rag:latest
-
-# Test
-curl -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"text": "How do I reset my password?"}'
 ```
+
+**Note:** The app talks to Ollama at `localhost:11434` by default. Inside a container, `localhost` is the container itself. For local Docker, run Ollama on the host and pass an appropriate host URL (for example `host.docker.internal` on Docker Desktop) or run Ollama in the same Compose/Kubernetes network and point the app at that service. Kubernetes manifests use a secret key `ollama-url` for the service URL.
 
 ---
 
-## ☸️ Kubernetes Deployment (AWS EKS)
+## Kubernetes
 
 ```bash
-# Configure kubectl for your EKS cluster
-aws eks update-kubeconfig --name your-cluster --region us-east-1
-
-# Deploy everything
+aws eks update-kubeconfig --name <cluster> --region <region>
 kubectl apply -f k8s/deployment.yaml
-
-# Check deployment status
 kubectl get pods -n ai-apps
 kubectl logs -f deployment/it-support-rag -n ai-apps
-
-# Check HPA is working
-kubectl get hpa -n ai-apps
 ```
 
----
-
-## 📊 Monitoring
-
-Import `monitoring/grafana-dashboard.json` into your Grafana instance.
-
-Metrics available at `/metrics`:
-- `itsupport_questions_total` — total questions asked
-- `itsupport_questions_success` — successful answers
-- `itsupport_questions_failed` — failed requests
-- `itsupport_response_seconds` — response time histogram
+Edit `k8s/deployment.yaml` for your image registry (replace the placeholder ECR image name), storage class, and ingress/host as needed.
 
 ---
 
-## 💬 Example Questions to Ask
+## Monitoring
 
-```
-"My laptop is running slow, what should I do?"
-"How do I reset my company password?"
-"My pod is stuck in CrashLoopBackOff"
-"VPN is not connecting"
-"GitLab CI pipeline is failing"
-"ImagePullBackOff error in Kubernetes"
-"Terraform apply is failing"
-"External monitor not detected"
-```
+Import `monitoring/grafana-dashboard.json` into Grafana. Scrape `http://<host>:8000/metrics`.
+
+Notable metrics:
+
+- `itsupport_questions_total`
+- `itsupport_questions_success` / `itsupport_questions_failed`
+- `itsupport_response_seconds`
+- `itsupport_sessions_total`
 
 ---
 
-## 🔐 Security Features
+## GitLab CI
 
-- **Local LLM** — no data sent to external APIs
-- **SOPS encryption** — secrets management for any API keys
-- **Trivy scanning** — container vulnerability scanning in CI/CD
-- **Kubernetes RBAC** — least-privilege access control
-- **No PII in vector store** — only IT support documentation
+Pipeline stages: test → security scan (Trivy) → build → push (ECR) → deploy (EKS). Set CI/CD variables such as `AWS_ACCOUNT_ID`, `AWS_REGION`, `EKS_CLUSTER_NAME`, and ensure AWS/GitLab runners can reach ECR and EKS.
+
+The **test** job runs `pytest tests/`. Add a `tests/` package with tests if you want that stage to pass on every run.
 
 ---
 
-## 📁 Project Structure
+## Security notes
+
+- Default setup uses a **local** LLM; no cloud LLM API key is required.
+- `.gitignore` excludes `.env`, `chroma_db/`, and `secrets.yaml`. Use your org’s standard (e.g. SOPS) for any real secrets in GitOps.
+- Keep IT docs free of passwords and personal data; treat the knowledge base as non-sensitive operational guidance.
+
+---
+
+## Project layout
 
 ```
 it-support-rag/
-├── app.py                    # FastAPI + LangChain RAG pipeline
-├── requirements.txt          # Python dependencies
-├── Dockerfile                # Container build (same pattern as Spring Boot)
-├── .gitlab-ci.yml            # CI/CD pipeline (build → scan → push → deploy)
-├── docs/                     # IT support knowledge base
-│   ├── password-account-issues.txt
-│   ├── network-connectivity.txt
-│   ├── kubernetes-devops.txt
-│   └── hardware-laptop.txt
-├── k8s/
-│   └── deployment.yaml       # K8s Deployment + Service + HPA + Ingress
+├── app.py                 # FastAPI + RAG
+├── requirements.txt
+├── Dockerfile
+├── .gitlab-ci.yml
+├── docs/                  # Knowledge base (*.txt)
+├── k8s/deployment.yaml
 └── monitoring/
     └── grafana-dashboard.json
 ```
 
 ---
 
-## 👤 About The Author
+## Roadmap (ideas)
 
-**Sumanth Kondru** — Senior DevOps Engineer transitioning to GenAI/MLOps Engineering
-
-- 13+ years enterprise infrastructure experience
-- Expert in Kubernetes (EKS/AKS), Docker, GitLab CI, Terraform, AWS/Azure
-- Building GenAI applications combining LLM deployment with production-grade DevOps
-
-📧 kondru.sumanth@gmail.com
-🔗 linkedin.com/in/sumanthkondru
+- Streamlit or other UI for non-API users
+- Slack or chat integration
+- Prompt / retrieval evaluation and caching
+- Org-specific fine-tuning or curated doc ingestion
 
 ---
 
-## 🗺️ Roadmap
+## Author
 
-- [ ] Add Streamlit web UI for non-technical users
-- [ ] Integrate with Slack for helpdesk bot
-- [ ] Add MLflow experiment tracking for prompt optimization
-- [ ] Fine-tune on company-specific IT documentation
-- [ ] Add Redis caching for repeated questions (cost optimization)
-- [ ] Multi-language support
+**Sumanth Kondru** — DevOps / platform engineering background; building GenAI apps with production-style delivery.
+
+- Email: kondru.sumanth@gmail.com
+- LinkedIn: [linkedin.com/in/sumanthkondru](https://linkedin.com/in/sumanthkondru)
+
+If this fork’s remote URL differs, change the clone URL in the Quick start section to match your GitHub user or organization.
